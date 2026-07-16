@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PesoLens</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f4f7fb;
+            --card: #ffffff;
+            --text: #132238;
+            --muted: #627287;
+            --accent: #2563eb;
+            --accent-2: #1d4ed8;
+            --border: #dbe3ee;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: linear-gradient(135deg, #eef4ff, var(--bg));
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .app-shell {
+            width: min(100%, 760px);
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            box-shadow: 0 20px 55px rgba(15, 23, 42, 0.12);
+            padding: 24px;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 18px;
+        }
+
+        .eyebrow {
+            display: inline-block;
+            padding: 6px 10px;
+            background: #dbeafe;
+            color: var(--accent-2);
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: clamp(1.6rem, 3vw, 2.2rem);
+        }
+
+        .hero p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 16px 0 12px;
+        }
+
+        .btn {
+            border: 0;
+            border-radius: 999px;
+            padding: 12px 18px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn:hover { transform: translateY(-1px); }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: var(--text);
+        }
+
+        .status {
+            text-align: center;
+            color: var(--muted);
+            margin-bottom: 12px;
+            min-height: 24px;
+        }
+
+        .webcam-box {
+            border: 2px dashed var(--border);
+            border-radius: 18px;
+            min-height: 260px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 14px;
+            background: #f8fbff;
+            overflow: hidden;
+        }
+
+        .webcam-box canvas,
+        .webcam-box video {
+            width: 100%;
+            max-width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 16px;
+            background: #0f172a;
+        }
+
+        .predictions {
+            display: grid;
+            gap: 8px;
+            padding: 10px 0 4px;
+        }
+
+        .prediction-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: #f8fbff;
+            color: var(--text);
+        }
+
+        .prediction-item strong { font-size: 0.95rem; }
+
+        .prediction-item span { color: var(--muted); font-size: 0.9rem; }
+
+        .prediction-item.highlight {
+            background: #dbeafe;
+            border-color: #60a5fa;
+            box-shadow: 0 8px 16px rgba(37, 99, 235, 0.12);
+        }
+
+        .prediction-item.highlight span {
+            color: #1d4ed8;
+            font-weight: 700;
+        }
+
+        @media (max-width: 600px) {
+            .app-shell { padding: 18px; }
+            .controls { flex-direction: column; }
+            .btn { width: 100%; }
+            .webcam-box { min-height: 220px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <header class="hero">
+            <div class="eyebrow">PESOLENS</div>
+            <h1>Scan money and get instant results</h1>
+            <p>Use your camera to identify bills with a Teachable Machine model.</p>
+            <p>Please hold your bills in a steady position.</p>
+        </header>
+
+        <section class="card">
+            <div class="controls">
+                <button id="start-btn" class="btn btn-primary" type="button">Start Scan</button>
+                <button id="stop-btn" class="btn btn-secondary" type="button">Stop</button>
+                <button id="switch-btn" class="btn btn-secondary" type="button">Switch Camera</button>
+            </div>
+
+            <div id="status" class="status">Tap Start Scan to enable the camera.</div>
+            <div id="webcam-container" class="webcam-box">
+                <video id="camera-video" autoplay playsinline muted></video>
+            </div>
+            <div id="label-container" class="predictions"></div>
+        </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script type="text/javascript">
+        const URL = "./my_model/";
+        let model = null;
+        let labelContainer = null;
+        let maxPredictions = 0;
+        let isRunning = false;
+        let loopHandle = null;
+        let stream = null;
+        let currentFacing = 'user'; // 'user' (front) or 'environment' (rear)
+        const excludedLabels = ['person', 'no money detected'];
+        let displayedClassIndices = [];
+        let lastAnnouncedLabel = null;
+
+        const statusEl = document.getElementById("status");
+        const videoEl = document.getElementById("camera-video");
+
+        async function init() {
+            if (isRunning) return;
+
+            statusEl.textContent = "Requesting camera access...";
+
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("Camera API is not supported in this browser.");
+                }
+
+                await startCameraStream();
+
+                const modelURL = URL + "model.json";
+                const metadataURL = URL + "metadata.json";
+
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+
+                labelContainer = document.getElementById("label-container");
+                labelContainer.innerHTML = "";
+                displayedClassIndices = [];
+                const classLabels = typeof model.getClassLabels === 'function'
+                    ? model.getClassLabels()
+                    : Array.from({ length: maxPredictions }, (_, idx) => `Class ${idx}`);
+
+                for (let i = 0; i < maxPredictions; i++) {
+                    const className = (classLabels[i] || `Class ${i}`).toString();
+                    if (excludedLabels.includes(className.toLowerCase())) {
+                        continue;
+                    }
+                    displayedClassIndices.push(i);
+                    const item = document.createElement("div");
+                    item.className = "prediction-item";
+                    item.innerHTML = `<strong>${className}</strong><span>--</span>`;
+                    labelContainer.appendChild(item);
+                }
+
+                isRunning = true;
+                statusEl.textContent = "Camera ready. Point it at the item to scan.";
+                loopHandle = window.requestAnimationFrame(loop);
+            } catch (error) {
+                console.error(error);
+                statusEl.textContent = "Camera access was blocked or unavailable. Please allow camera permission and try again.";
+            }
+        }
+
+        async function startCameraStream() {
+            try {
+                // stop existing tracks if any
+                if (stream) {
+                    stream.getTracks().forEach(t => t.stop());
+                    stream = null;
+                }
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: currentFacing } },
+                    audio: false
+                });
+
+                videoEl.srcObject = stream;
+                // ensure preview is not mirrored
+                videoEl.style.transform = 'scaleX(1)';
+                await videoEl.play();
+            } catch (err) {
+                console.error('Error starting camera stream', err);
+                throw err;
+            }
+        }
+
+        async function loop() {
+            if (!isRunning || !model) return;
+            await predict();
+            loopHandle = window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            if (!model || !videoEl || videoEl.readyState < 2) return;
+            const prediction = await model.predict(videoEl);
+
+            let highestChildIndex = -1;
+            let highestProbability = -1;
+            let highestLabel = '';
+
+            displayedClassIndices.forEach((classIndex, displayIndex) => {
+                const item = labelContainer.children[displayIndex];
+                if (!item) return;
+
+                const probability = prediction[classIndex].probability;
+                const label = prediction[classIndex].className;
+                item.classList.remove("highlight");
+                item.innerHTML = `<strong>${label}</strong><span>${(probability * 100).toFixed(1)}%</span>`;
+
+                if (probability > highestProbability) {
+                    highestProbability = probability;
+                    highestChildIndex = displayIndex;
+                    highestLabel = label;
+                }
+            });
+
+            if (highestChildIndex >= 0) {
+                const topItem = labelContainer.children[highestChildIndex];
+                if (topItem) {
+                    topItem.classList.add("highlight");
+                }
+            }
+
+            if (highestProbability === 1 && highestLabel && highestLabel.toLowerCase() !== 'person' && highestLabel.toLowerCase() !== 'no money detected') {
+                announceBill(highestLabel);
+            }
+        }
+
+        function announceBill(label) {
+            if (!window.speechSynthesis) return;
+            if (lastAnnouncedLabel === label) return;
+
+            lastAnnouncedLabel = label;
+            const msg = new SpeechSynthesisUtterance(`Detected ${label}`);
+            msg.lang = 'en-US';
+            msg.rate = 1;
+            msg.volume = 1;
+            window.speechSynthesis.speak(msg);
+        }
+
+        document.getElementById("start-btn").addEventListener("click", init);
+        document.getElementById("stop-btn").addEventListener("click", () => {
+            isRunning = false;
+            if (loopHandle) cancelAnimationFrame(loopHandle);
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            if (videoEl) {
+                videoEl.pause();
+                videoEl.srcObject = null;
+            }
+            statusEl.textContent = "Camera stopped.";
+        });
+
+        document.getElementById('switch-btn').addEventListener('click', async () => {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                statusEl.textContent = 'Camera API not supported.';
+                return;
+            }
+
+            // toggle facing mode
+            currentFacing = currentFacing === 'user' ? 'environment' : 'user';
+            statusEl.textContent = 'Switching camera...';
+
+            try {
+                await startCameraStream();
+                statusEl.textContent = 'Camera switched. Point it at the item to scan.';
+            } catch (err) {
+                statusEl.textContent = 'Unable to switch camera. Permission or device may not support it.';
+            }
+        });
+    </script>
+</body>
+</html>
