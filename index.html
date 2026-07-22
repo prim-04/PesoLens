@@ -40,11 +40,40 @@
         }
 
         .hero {
-            text-align: center;
             margin-bottom: 18px;
         }
 
-        .eyebrow {
+        .hero-top {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 14px;
+        }
+
+        .logo-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-box {
+            width: 100px;
+            height: 100px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: linear-gradient(135deg, #dbeafe, #f8fbff);
+            display: block;
+            object-fit: contain;
+            padding: 10px;
+            box-shadow: 0 10px 24px rgba(37, 99, 235, 0.12);
+        }
+
+        .headline {
+            text-align: left;
+        }
+
+        .headline .eyebrow {
             display: inline-block;
             padding: 6px 10px;
             background: #dbeafe;
@@ -202,8 +231,15 @@
 <body>
     <div class="app-shell">
         <header class="hero">
-            <div class="eyebrow">PESOLENS</div>
-            <h1>Scan money and get instant results</h1>
+            <div class="hero-top">
+                <div class="logo-wrap">
+                    <img class="logo-box" src="src/img/pesoLensLogo.png" alt="PesoLens Logo" />
+                </div>
+                <div class="headline">
+                    <div class="eyebrow">PesoLens</div>
+                    <h1>Scan money and get instant results</h1>
+                </div>
+            </div>
             <p>Use your camera to identify bills with a Teachable Machine model.</p>
             <p>Please hold your bills in a steady position.</p>
         </header>
