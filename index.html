@@ -134,6 +134,37 @@
             padding: 10px 0 4px;
         }
 
+        .bill-info-card {
+            margin-top: 14px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: #f8fbff;
+            padding: 20px;
+            display: none;
+            min-height: 220px;
+        }
+
+        .bill-info-card.visible {
+            display: block;
+        }
+
+        .bill-info-card h2 {
+            margin: 0 0 12px;
+            font-size: 1.35rem;
+        }
+
+        .bill-info-card ul {
+            margin: 0;
+            padding-left: 22px;
+            color: var(--muted);
+            font-size: 1rem;
+        }
+
+        .bill-info-card li {
+            margin: 8px 0;
+            line-height: 1.45;
+        }
+
         .prediction-item {
             display: flex;
             justify-content: space-between;
@@ -188,6 +219,7 @@
             <div id="webcam-container" class="webcam-box">
                 <video id="camera-video" autoplay playsinline muted></video>
             </div>
+            <div id="bill-info" class="bill-info-card"></div>
             <div id="label-container" class="predictions"></div>
         </section>
     </div>
@@ -207,8 +239,52 @@
         let displayedClassIndices = [];
         let lastAnnouncedLabel = null;
 
+        const billInfoEl = document.getElementById("bill-info");
         const statusEl = document.getElementById("status");
         const videoEl = document.getElementById("camera-video");
+
+        const billDetails = {
+            '20 bill': {
+                title: '₱20 New Generation Currency Bill',
+                color: 'Green',
+                size: 'Medium',
+                features: 'Manuel L. Quezon',
+                landmarks: 'Malacañang Palace',
+                series: 'New Generation Currency'
+            },
+            '50 bill': {
+                title: '₱50 New Generation Currency Bill',
+                color: 'Red',
+                size: 'Medium',
+                features: 'Jose Rizal',
+                landmarks: 'Taal Volcano',
+                series: 'New Generation Currency'
+            },
+            '100 bill': {
+                title: '₱100 New Generation Currency Bill',
+                color: 'Blue',
+                size: 'Medium',
+                features: 'José Rizal',
+                landmarks: 'Bahay Tsinoy',
+                series: 'New Generation Currency'
+            },
+            '500 bill': {
+                title: '₱500 Polymer Bill',
+                color: 'Green',
+                size: 'Large',
+                features: 'Apolinario Mabini',
+                landmarks: 'Tubbataha Reef',
+                series: 'Polymer'
+            },
+            '1000 bill': {
+                title: '₱1000 Polymer Bill',
+                color: 'Blue',
+                size: 'Large',
+                features: 'Philippine Eagle',
+                landmarks: 'Mayon Volcano',
+                series: 'Polymer'
+            }
+        };
 
         async function init() {
             if (isRunning) return;
@@ -309,16 +385,46 @@
                 }
             });
 
-            if (highestChildIndex >= 0) {
+            if (highestProbability >= 0.8 && highestChildIndex >= 0) {
                 const topItem = labelContainer.children[highestChildIndex];
                 if (topItem) {
                     topItem.classList.add("highlight");
                 }
             }
 
-            if (highestProbability === 1 && highestLabel && highestLabel.toLowerCase() !== 'person' && highestLabel.toLowerCase() !== 'no money detected') {
-                announceBill(highestLabel);
+            if (highestProbability >= 0.99 && highestLabel) {
+                renderBillInfo(highestLabel);
+                if (highestProbability === 1) {
+                    announceBill(highestLabel);
+                }
+            } else {
+                billInfoEl.classList.remove('visible');
+                billInfoEl.innerHTML = '';
             }
+        }
+
+        function renderBillInfo(label) {
+            const normalizedLabel = label.toLowerCase();
+            const details = billDetails[normalizedLabel];
+
+            if (!details) {
+                billInfoEl.classList.remove('visible');
+                billInfoEl.innerHTML = '';
+                return;
+            }
+
+            billInfoEl.classList.add('visible');
+            billInfoEl.innerHTML = `
+                <h2>${details.title}</h2>
+                <ul>
+                    <li><strong>Denomination:</strong> ${details.title}</li>
+                    <li><strong>Color:</strong> ${details.color}</li>
+                    <li><strong>Size:</strong> ${details.size}</li>
+                    <li><strong>Featured national heroes:</strong> ${details.features}</li>
+                    <li><strong>Important landmarks:</strong> ${details.landmarks}</li>
+                    <li><strong>Series:</strong> ${details.series}</li>
+                </ul>
+            `;
         }
 
         function announceBill(label) {
